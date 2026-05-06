@@ -561,6 +561,15 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
       <button class="btn btn-amber btn-sm" onclick="syncNow()">Sync Now</button>
     </div>
 
+    <!-- Report download banner — appears after inspection submission -->
+    <div id="report-banner" class="sync-banner hidden" style="background:#e8f5e9;border-color:#27ae60;">
+      <div>
+        <div class="sb-text" style="color:#1e7e34;">📄 <span id="report-gen-name">Inspection</span> ready</div>
+        <div class="sb-sub">Tap to download the summary report</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="downloadLastReport()">Download</button>
+    </div>
+
     <div class="stat-row">
       <div class="stat-box">
         <div class="stat-val" id="stat-today">—</div>
@@ -934,6 +943,8 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
 <script>
 'use strict';
 
+let _lastInspectionData = null; // stores last submitted inspection for report download
+
 // ══════════════════════════════════════════════ CONFIG ═══
 const DB_NAME = 'efr_field_v1';
 let _db;
@@ -950,7 +961,14 @@ function saveConfig() {
   if (!url || !key) { toast('Enter both URL and key', 'error'); return; }
   localStorage.setItem('sb_url', url);
   localStorage.setItem('sb_key', key);
-  bootApp();
+  // Show connected confirmation, then boot into app
+  document.getElementById('setup-login').classList.add('hidden');
+  document.getElementById('setup-connected').classList.remove('hidden');
+  setTimeout(() => {
+    document.getElementById('screen-setup').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    bootApp();
+  }, 1000);
 }
 
 // ══════════════════════════════════════════ INDEXEDDB ═══
@@ -1547,6 +1565,19 @@ async function submitInspection() {
     } else {
       await queueAdd(payload);
     }
+    // Store for report download before resetting form
+    const staffEl = document.getElementById('insp-staff');
+    const staffName = staffEl ? staffEl.options[staffEl.selectedIndex]?.text || '' : '';
+    const genDisplay = document.getElementById('insp-gen-display')?.textContent || 'Generator';
+    _lastInspectionData = {
+      genName:        genDisplay.replace(/^✓\s*/, '').split('·')[0].trim(),
+      date:           date,
+      inspector:      staffName,
+      submitType:     submitType,
+      inspectionData: inspectionData,
+      isCompliant:    isCompliant,
+    };
+    showReportBanner(_lastInspectionData.genName);
     resetForm('insp');
     updateQueueBadge();
     toast(inspSubmitted ? '✓ Inspection saved!' : '📤 Saved offline — will sync when connected', 'success');
@@ -1622,6 +1653,94 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
   }
 
   localStorage.setItem('last_sync', new Date().toISOString());
+}
+
+// ══════════════════════════════════════════════ REPORT ═══
+function showReportBanner(genName) {
+  document.getElementById('report-gen-name').textContent = genName || 'Inspection';
+  document.getElementById('report-banner').classList.remove('hidden');
+}
+
+function generateInspectionHTML(d) {
+  const fv = x => (!x || x === '' || (Array.isArray(x) && !x.length)) ? '—' : (Array.isArray(x) ? x.join(', ') : String(x));
+  const fb = x => x === true ? 'Yes' : x === false ? 'No' : 'Not assessed';
+  const decode = x => {
+    if (!x) return '—';
+    const map = {
+      yes_completed:'Yes, completed', yes_pending:'Yes, pending signature',
+      no_not_needed:'Not Needed', yes_hauler:'Yes — Hauler serviced container',
+      yes_third_party:'Yes — Third party program', yes_self:'Yes — Self-managed',
+      no:'No', yes:'Yes', not_assessed:'Not assessed this visit'
+    };
+    return map[x] || x;
+  };
+  const row = (label, val) => `<tr><td>${label}</td><td>${val}</td></tr>`;
+  const idat = d.inspectionData || {};
+  const css = [
+    'body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#333;font-size:14px}',
+    'h1{color:#2E6F40;border-bottom:2px solid #2E6F40;padding-bottom:8px}',
+    'h2{color:#2E6F40;font-size:15px;margin-top:24px;border-bottom:1px solid #ccc}',
+    'table{width:100%;border-collapse:collapse;margin-bottom:16px}',
+    'td{padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top}',
+    'td:first-child{font-weight:bold;width:45%;color:#555}',
+    '.sc{background:#d5f4e6;color:#1e7e34;padding:10px 16px;border-radius:6px;font-weight:bold;font-size:16px;margin:12px 0}',
+    '.snc{background:#fadbd8;color:#c0392b;padding:10px 16px;border-radius:6px;font-weight:bold;font-size:16px;margin:12px 0}',
+    '.notes{background:#f8f9fa;padding:12px;border-radius:6px;white-space:pre-wrap;font-size:13px}',
+    '.footer{color:#aaa;font-size:11px;margin-top:32px;border-top:1px solid #eee;padding-top:8px}'
+  ].join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Inspection Summary</title>
+<style>${css}</style></head><body>
+<h1>SB 1383 Inspection Summary</h1>
+<h2>Generator Information</h2><table>
+${row('Business Name', fv(d.genName))}
+</table>
+<h2>Inspection Details</h2><table>
+${row('Date',              fv(d.date))}
+${row('Inspector',         fv(d.inspector))}
+${row('Type',              d.submitType === 'official' ? 'Official Inspection' : 'Educational Site Visit')}
+${row('Person Met Onsite', fv(idat.person_onsite))}
+${row('Food Types',        fv(idat.food_types))}
+${row('Minimal Food Form', decode(idat.minimal_food_form))}
+</table>
+<h2>Section C — Compliance Checklist</h2><table>
+${row('EFRO Partners',             fv(idat.c2_partners))}
+${row('Written Agreement',         fv(idat.c3_written_agreement))}
+${row('Pickup Schedule',           fv(idat.c4_pickup_schedule))}
+${row('Donation Schedule on File', fb(idat.donation_schedule_exists))}
+${row('Monthly Weight Records',    fv(idat.c6_monthly_weight))}
+${row('Lbs Donated / Month',       fv(idat.c6_lbs_per_month))}
+</table>
+<h2>Section D — Waste Containers</h2><table>
+${row('Organics Program',          decode(idat.d2_fw_program))}
+${row('Organics Contamination %',  fv(idat.d2_contamination))}
+${row('MSW Program',               decode(idat.d3_msw_program))}
+${row('MSW Contamination %',       fv(idat.d3_contamination))}
+${row('Recycling Program',         decode(idat.d4_rcy_program))}
+${row('Recycling Contamination %', fv(idat.d4_contamination))}
+</table>
+<div class="${d.isCompliant ? 'sc' : 'snc'}">
+  EFR Compliance: ${d.isCompliant ? 'COMPLIANT' : 'NON-COMPLIANT'}
+</div>
+<h2>Notes</h2>
+<div class="notes">${fv(idat.notes)}</div>
+<div class="footer">Generated by EFR Field App • ${d.date}</div>
+</body></html>`;
+}
+
+function downloadLastReport() {
+  if (!_lastInspectionData) { toast('No report available', 'error'); return; }
+  const html = generateInspectionHTML(_lastInspectionData);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const name = (_lastInspectionData.genName || 'Inspection').replace(/[^A-Za-z0-9_-]/g, '_');
+  a.href     = url;
+  a.download = `${name}_${_lastInspectionData.date}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ══════════════════════════════════════════════ SYNC ═══
@@ -1734,7 +1853,10 @@ async function bootApp() {
   const cfg = getConfig();
 
   if (!cfg) {
+    document.getElementById('setup-login').classList.remove('hidden');
+    document.getElementById('setup-connected').classList.add('hidden');
     document.getElementById('screen-setup').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
     return;
   }
 
@@ -1766,7 +1888,15 @@ async function bootApp() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', bootApp);
+document.addEventListener('DOMContentLoaded', () => {
+  // Immediately hide setup screen if credentials already saved — 
+  // don't wait for async bootApp to avoid flash of setup screen
+  if (getConfig()) {
+    document.getElementById('screen-setup').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+  }
+  bootApp();
+});
 
 // When user lands on queue tab, render it
 const _origGoTo = goTo;
