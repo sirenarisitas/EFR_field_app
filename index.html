@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="EFR Field">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>EFR Field App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green:      #1B3A2D;
+  --green-mid:  #2E6F40;
+  --green-lite: #4CAF7D;
+  --green-pale: #D4EDDA;
+  --amber:      #F59E0B;
+  --amber-pale: #FEF3C7;
+  --red:        #DC2626;
+  --red-pale:   #FEE2E2;
+  --ink:        #0F1A14;
+  --ink-mid:    #3D5247;
+  --ink-lite:   #6B7C72;
+  --paper:      #F4F1EC;
+  --white:      #FFFFFF;
+  --card:       #FFFFFF;
+  --border:     #D8D3CB;
+  --radius:     12px;
+  --radius-sm:  8px;
+  --nav-h:      64px;
+  --header-h:   56px;
+  --font:       'Sora', sans-serif;
+  --mono:       'IBM Plex Mono', monospace;
+  --shadow:     0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg:  0 8px 32px rgba(0,0,0,0.14);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: var(--font);
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; height: 100dvh; }
+
+header {
+  background: var(--green);
+  color: var(--white);
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+#status-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.3s;
+}
+#status-badge.online  { background: rgba(76,175,125,0.3); }
+#status-badge.offline { background: rgba(220,38,38,0.3); }
+#status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+#status-badge.online  #status-dot { background: var(--green-lite); }
+#status-badge.offline #status-dot { background: var(--red); }
+
+.screen {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  padding-bottom: calc(var(--nav-h) + 16px);
+}
+.screen.hidden { display: none; }
+
+/* ── BOTTOM NAV ── */
+nav {
+  height: var(--nav-h);
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  color: var(--ink-lite);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+nav button.active { color: var(--green-mid); }
+nav button .nav-icon { font-size: 20px; line-height: 1; }
+nav button .badge {
+  position: absolute;
+  top: 6px; right: calc(50% - 14px);
+  background: var(--amber);
+  color: var(--white);
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* ── CARDS & SECTIONS ── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.section-head {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--green-mid);
+  margin: 20px 0 8px;
+  font-family: var(--mono);
+}
+.section-head:first-child { margin-top: 0; }
+
+/* ── FORM ELEMENTS ── */
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  margin-bottom: 5px;
+  letter-spacing: 0.2px;
+}
+label .req { color: var(--red); margin-left: 2px; }
+
+input[type=text], input[type=date], input[type=number],
+select, textarea {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--white);
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color 0.15s;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--green-mid);
+}
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236B7C72' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+.search-wrap { position: relative; }
+.search-wrap input { padding-right: 36px; }
+.search-icon {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-lite);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+/* Generator search results */
+#gen-results, #insp-gen-results {
+  background: var(--white);
+  border: 1.5px solid var(--green-mid);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 50;
+  position: relative;
+}
+#gen-results .gen-item, #insp-gen-results .gen-item {
+  padding: 10px 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  -webkit-tap-highlight-color: transparent;
+}
+#gen-results .gen-item:last-child, #insp-gen-results .gen-item:last-child { border-bottom: none; }
+#gen-results .gen-item:active, #insp-gen-results .gen-item:active { background: var(--green-pale); }
+.gen-item .gen-name { font-weight: 600; color: var(--ink); }
+.gen-item .gen-meta { font-size: 11px; color: var(--ink-lite); font-family: var(--mono); margin-top: 1px; }
+
+/* Multi-select checkboxes */
+.check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+.check-grid.one-col { grid-template-columns: 1fr; }
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  background: var(--white);
+  transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.check-item input[type=checkbox] { display: none; }
+.check-item.checked {
+  background: var(--green-pale);
+  border-color: var(--green-mid);
+  color: var(--green);
+}
+.check-item .check-box {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--white);
+  transition: all 0.12s;
+  font-size: 11px;
+}
+.check-item.checked .check-box {
+  background: var(--green-mid);
+  border-color: var(--green-mid);
+  color: white;
+}
+
+/* Radio groups */
+.radio-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.radio-item {
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-mid);
+  background: var(--white);
+  transition: all 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  text-align: center;
+}
+.radio-item input { display: none; }
+.radio-item.selected { background: var(--green-pale); border-color: var(--green-mid); color: var(--green); }
+.radio-item.selected-no { background: var(--red-pale); border-color: var(--red); color: var(--red); }
+
+/* Hint text */
+.hint { font-size: 11px; color: var(--ink-lite); margin-top: 5px; line-height: 1.4; }
+
+/* Contamination input row */
+.contam-row { display: flex; gap: 8px; align-items: flex-end; }
+.contam-row .field { flex: 1; margin-bottom: 0; }
+.contam-row .pct-label { font-size: 15px; color: var(--ink-lite); padding-bottom: 11px; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  letter-spacing: -0.2px;
+}
+.btn-primary { background: var(--green-mid); color: var(--white); }
+.btn-primary:active { background: var(--green); transform: scale(0.98); }
+.btn-amber { background: var(--amber); color: var(--white); }
+.btn-amber:active { background: #D97706; transform: scale(0.98); }
+.btn-ghost {
+  background: transparent;
+  color: var(--green-mid);
+  border: 2px solid var(--green-mid);
+}
+.btn-danger { background: var(--red); color: var(--white); }
+.btn:disabled { opacity: 0.5; pointer-events: none; }
+.btn-sm { padding: 10px 14px; font-size: 13px; border-radius: var(--radius-sm); width: auto; }
+
+/* ── HOME SCREEN ── */
+.action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.action-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 20px 14px;
+  text-align: center;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+}
+.action-card:active { transform: scale(0.97); border-color: var(--green-mid); }
+.action-card .ac-icon { font-size: 32px; }
+.action-card .ac-label { font-size: 13px; font-weight: 700; color: var(--ink); }
+.action-card .ac-sub { font-size: 11px; color: var(--ink-lite); }
+
+.sync-banner {
+  background: var(--amber-pale);
+  border: 1.5px solid var(--amber);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sync-banner .sb-text { font-size: 13px; font-weight: 600; color: var(--ink); }
+.sync-banner .sb-sub { font-size: 11px; color: var(--ink-lite); margin-top: 2px; }
+
+.stat-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.stat-box {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.stat-box .stat-val {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--green-mid);
+  line-height: 1;
+}
+.stat-box .stat-lbl { font-size: 11px; color: var(--ink-lite); margin-top: 4px; }
+
+/* ── QUEUE SCREEN ── */
+.queue-item {
+  background: var(--card);
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  margin-bottom: 8px;
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.queue-item .qi-icon { font-size: 22px; flex-shrink: 0; }
+.queue-item .qi-body { flex: 1; min-width: 0; }
+.queue-item .qi-type { font-size: 12px; font-weight: 700; color: var(--green-mid); text-transform: uppercase; font-family: var(--mono); letter-spacing: 0.5px; }
+.queue-item .qi-name { font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-item .qi-date { font-size: 11px; color: var(--ink-lite); font-family: var(--mono); }
+.queue-item .qi-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.status-pending { background: var(--amber-pale); color: #92400E; }
+.status-error   { background: var(--red-pale);   color: var(--red); }
+.status-syncing { background: var(--green-pale);  color: var(--green); }
+
+/* ── SETUP SCREEN ── */
+#screen-setup {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--green);
+  padding: 40px 24px;
+  justify-content: center;
+}
+.setup-logo { font-size: 48px; text-align: center; margin-bottom: 8px; }
+.setup-title { text-align: center; color: var(--white); font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+.setup-sub { text-align: center; color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 32px; }
+.setup-card { background: var(--white); border-radius: var(--radius); padding: 24px; }
+.setup-card label { color: var(--ink-mid); }
+.setup-card input { margin-bottom: 12px; }
+.setup-note { color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; margin-top: 16px; line-height: 1.6; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 16px);
+  left: 16px; right: 16px;
+  background: var(--ink);
+  color: var(--white);
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  z-index: 999;
+  transform: translateY(120%);
+  transition: transform 0.3s ease;
+  pointer-events: none;
+}
+#toast.show { transform: translateY(0); }
+#toast.success { background: var(--green-mid); }
+#toast.error   { background: var(--red); }
+
+/* ── LOADING ── */
+#loading-overlay {
+  position: fixed; inset: 0;
+  background: rgba(27,58,45,0.85);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  z-index: 9999;
+  color: white;
+  gap: 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+#loading-overlay.hidden { display: none; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Misc utils */
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.text-center { text-align: center; }
+.text-muted { color: var(--ink-lite); font-size: 13px; }
+.flex-row { display: flex; gap: 8px; }
+.flex-row .field { flex: 1; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════ SETUP ═══ -->
+<div id="screen-setup" class="hidden">
+  <div class="setup-logo">🌿</div>
+  <h1 class="setup-title">EFR Field App</h1>
+  <p class="setup-sub">Enter your Supabase credentials to get started</p>
+  <div class="setup-card">
+    <div class="field">
+      <label>Supabase Project URL</label>
+      <input type="text" id="cfg-url" placeholder="https://xxxx.supabase.co" autocomplete="off" autocapitalize="off">
+    </div>
+    <div class="field">
+      <label>Anon / Public Key</label>
+      <input type="text" id="cfg-key" placeholder="eyJ..." autocomplete="off" autocapitalize="off">
+    </div>
+    <button class="btn btn-primary" onclick="saveConfig()">Save & Connect →</button>
+  </div>
+  <p class="setup-note">Credentials are stored on this device only and never transmitted except to your Supabase project.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════ APP ═══ -->
+<div id="app" class="hidden">
+  <div id="loading-overlay" class="hidden">
+    <div class="spinner"></div>
+    <span id="loading-msg">Saving...</span>
+  </div>
+
+  <header>
+    <h1>🌿 EFR Field</h1>
+    <div id="status-badge">
+      <div id="status-dot"></div>
+      <span id="status-text">Checking...</span>
+    </div>
+  </header>
+
+  <!-- ── HOME ── -->
+  <div id="screen-home" class="screen">
+    <div id="sync-banner" class="sync-banner hidden">
+      <div>
+        <div class="sb-text">📤 <span id="pending-count">0</span> records pending upload</div>
+        <div class="sb-sub">Connect to Wi-Fi or step outside to sync</div>
+      </div>
+      <button class="btn btn-amber btn-sm" onclick="syncNow()">Sync Now</button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-val" id="stat-today">—</div>
+        <div class="stat-lbl">Submitted today</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-pending" style="color:var(--amber)">—</div>
+        <div class="stat-lbl">Pending sync</div>
+      </div>
+    </div>
+
+    <div class="section-head">New Submission</div>
+    <div class="action-grid">
+      <div class="action-card" onclick="goTo('site-visit')">
+        <div class="ac-icon">🏪</div>
+        <div class="ac-label">Site Visit</div>
+        <div class="ac-sub">Outreach record</div>
+      </div>
+      <div class="action-card" onclick="goTo('inspection')">
+        <div class="ac-icon">📋</div>
+        <div class="ac-label">Inspection</div>
+        <div class="ac-sub">Official or educational</div>
+      </div>
+    </div>
+
+    <div class="section-head">Last Sync</div>
+    <p class="text-muted" id="last-sync-text">Never</p>
+
+    <div class="mt-12">
+      <button class="btn btn-ghost" onclick="refreshLookups()">🔄 Refresh Generator List</button>
+    </div>
+  </div>
+
+  <!-- ── SITE VISIT ── -->
+  <div id="screen-site-visit" class="screen hidden">
+    <div class="section-head">Generator</div>
+    <div class="card">
+      <div class="field">
+        <label>Generator <span class="req">*</span></label>
+        <div class="search-wrap">
+          <input type="text" id="sv-gen-search" placeholder="Search name or city…" oninput="filterGens('sv')" autocomplete="off">
+          <span class="search-icon">🔍</span>
+        </div>
+        <div id="gen-results"></div>
+        <input type="hidden" id="sv-gen-id">
+        <div id="sv-gen-display" class="hint" style="margin-top:6px;font-weight:600;color:var(--green-mid)"></div>
+      </div>
+      <div class="flex-row">
+        <div class="field">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" id="sv-date">
+        </div>
+        <div class="field">
+          <label>Staff <span class="req">*</span></label>
+          <select id="sv-staff"><option value="">Select…</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Purpose / Visit Type</label>
+        <input type="text" id="sv-purpose" placeholder="e.g. Compliance site visit, Follow-up">
+      </div>
+      <div class="field">
+        <label>Person Met Onsite</label>
+        <input type="text" id="sv-attendees" placeholder="Name and title">
+      </div>
+    </div>
+
+    <div class="section-head">Documentation</div>
+    <div class="card">
+      <p class="hint" style="margin-bottom:10px">Checking a box records it as TRUE. Unchecked items leave the existing record unchanged.</p>
+      <div class="check-grid one-col">
+        <label class="check-item" id="sv-doc-wa">
+          <input type="checkbox" id="sv-written-agreement" onchange="toggleCheck('sv-doc-wa')">
+          <span class="check-box">✓</span> Written agreement exists
+        </label>
+        <label class="check-item" id="sv-doc-mff">
+          <input type="checkbox" id="sv-minimal-form" onchange="toggleCheck('sv-doc-mff')">
+          <span class="check-box">✓</span> Minimal food form completed
+        </label>
+        <label class="check-item" id="sv-doc-mdr">
+          <input type="checkbox" id="sv-monthly-records" onchange="toggleCheck('sv-doc-mdr')">
+          <span class="check-box">✓</span> Monthly donation records on hand
+        </label>
+        <label class="check-item" id="sv-doc-ds">
+          <input type="checkbox" id="sv-donation-schedule" onchange="toggleCheck('sv-doc-ds')">
+          <span class="check-box">✓</span> Donation schedule exists <span style="font-size:10px;color:var(--ink-lite);margin-left:4px">(informational)</span>
+        </label>
+        <label class="check-item" id="sv-doc-ei">
+          <input type="checkbox" id="sv-efro-info" onchange="toggleCheck('sv-doc-ei')">
+          <span class="check-box">✓</span> EFRO partnership info received
+        </label>
+      </div>
+      <div class="field mt-8">
+        <label>EFRO Partner Name(s)</label>
+        <input type="text" id="sv-efro-text" placeholder="e.g. Second Harvest, OC Food Bank">
+      </div>
+    </div>
+
+    <div class="section-head">Food Types on Site <span style="font-weight:400;font-size:10px;color:var(--ink-lite)">(additive — unchecked items not removed)</span></div>
+    <div class="card">
+      <div class="check-grid" id="sv-food-types"></div>
+    </div>
+
+    <div class="section-head">Follow-up</div>
+    <div class="card">
+      <div class="field">
+        <label>Recommended Action</label>
+        <select id="sv-action">
+          <option value="">(no change)</option>
+          <option value="eco_follow_up">Eco Follow Up</option>
+          <option value="city_action">City Action</option>
+          <option value="none_compliant">None / Compliant</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="check-item" id="sv-fu-check" style="display:flex;margin-bottom:8px">
+          <input type="checkbox" id="sv-followup" onchange="toggleCheck('sv-fu-check')">
+          <span class="check-box">✓</span> Follow-up needed
+        </label>
+        <input type="date" id="sv-followup-date">
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="sv-notes" rows="4" placeholder="Observations, conversation details, next steps…"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-primary" onclick="submitSiteVisit()">Submit Site Visit →</button>
+    </div>
+  </div>
+
+  <!-- ── INSPECTION ── -->
+  <div id="screen-inspection" class="screen hidden">
+    <div class="section-head">Generator</div>
+    <div class="card">
+      <div class="field">
+        <label>Generator <span class="req">*</span></label>
+        <div class="search-wrap">
+          <input type="text" id="insp-gen-search" placeholder="Search name or city…" oninput="filterGens('insp')" autocomplete="off">
+          <span class="search-icon">🔍</span>
+        </div>
+        <div id="insp-gen-results"></div>
+        <input type="hidden" id="insp-gen-id">
+        <div id="insp-gen-display" class="hint" style="margin-top:6px;font-weight:600;color:var(--green-mid)"></div>
+      </div>
+      <div class="flex-row">
+        <div class="field">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" id="insp-date">
+        </div>
+        <div class="field">
+          <label>Inspector <span class="req">*</span></label>
+          <select id="insp-staff"><option value="">Select…</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Person Met Onsite</label>
+        <input type="text" id="insp-person" placeholder="Name and title">
+      </div>
+      <div class="field">
+        <label>Submit As <span class="req">*</span></label>
+        <div class="radio-group">
+          <label class="radio-item selected" id="ri-official" onclick="selectRadio('submit-type','official','ri-official','ri-edu')">
+            <input type="radio" name="submit-type" value="official" checked> Official Inspection
+          </label>
+          <label class="radio-item" id="ri-edu" onclick="selectRadio('submit-type','educational','ri-edu','ri-official')">
+            <input type="radio" name="submit-type" value="educational"> Educational Visit
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">Section B — On-Site Observation</div>
+    <div class="card">
+      <div class="field">
+        <label>Food on site?</label>
+        <div class="radio-group">
+          <label class="radio-item" id="ri-food-yes" onclick="selectRadio('food-onsite','yes','ri-food-yes','ri-food-no')"><input type="radio" name="food-onsite" value="yes"> Yes</label>
+          <label class="radio-item" id="ri-food-no"  onclick="selectRadio('food-onsite','no','ri-food-no','ri-food-yes')"><input type="radio" name="food-onsite" value="no"> No</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Food types on site <span style="font-weight:400;font-size:10px;color:var(--ink-lite)">(additive)</span></label>
+        <div class="check-grid" id="insp-food-types"></div>
+      </div>
+      <div class="field">
+        <label>Minimal Food Form</label>
+        <div class="radio-group">
+          <label class="radio-item" id="ri-mff-yes" onclick="selectRadio('mff','yes_completed','ri-mff-yes','ri-mff-no','ri-mff-na')"><input type="radio" name="mff" value="yes_completed"> Completed</label>
+          <label class="radio-item" id="ri-mff-no"  onclick="selectRadio('mff','no','ri-mff-no','ri-mff-yes','ri-mff-na')"><input type="radio" name="mff" value="no"> No</label>
+          <label class="radio-item" id="ri-mff-na"  onclick="selectRadio('mff','no_not_needed','ri-mff-na','ri-mff-yes','ri-mff-no')"><input type="radio" name="mff" value="no_not_needed"> Not Needed</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Staff trained on food recovery</label>
+        <input type="text" id="insp-staff-trained" placeholder="e.g. Kitchen Manager, Produce Staff">
+      </div>
+      <div class="field">
+        <label>Prevention strategies in use</label>
+        <div class="check-grid one-col" id="insp-prevention"></div>
+      </div>
+    </div>
+
+    <div class="section-head">Section C — Compliance Checklist</div>
+    <div class="card">
+      <div class="field">
+        <label>EFRO Partner(s)</label>
+        <input type="text" id="insp-c2-partners" placeholder="e.g. Second Harvest, OC Food Bank">
+        <p class="hint">Saved to compliance record. Required for full documentation compliance path.</p>
+      </div>
+      <div class="field">
+        <label>Written agreement (C3)?</label>
+        <div class="radio-group">
+          <label class="radio-item" id="ri-wa-yes" onclick="selectRadio('c3-wa','yes','ri-wa-yes','ri-wa-no','ri-wa-na')"><input type="radio" name="c3-wa" value="yes"> Yes</label>
+          <label class="radio-item" id="ri-wa-no"  onclick="selectRadio('c3-wa','no','ri-wa-no','ri-wa-yes','ri-wa-na')"><input type="radio" name="c3-wa" value="no"> No</label>
+          <label class="radio-item" id="ri-wa-na"  onclick="selectRadio('c3-wa','not_assessed','ri-wa-na','ri-wa-yes','ri-wa-no')"><input type="radio" name="c3-wa" value="not_assessed"> Not Assessed</label>
+        </div>
+        <p class="hint">Only 'Yes' records TRUE. 'No' and 'Not assessed' leave existing record unchanged.</p>
+      </div>
+      <div class="field">
+        <label>Pickup schedule (C4)?</label>
+        <div class="radio-group">
+          <label class="radio-item" id="ri-c4-yes" onclick="selectRadio('c4-ps','yes','ri-c4-yes','ri-c4-no','ri-c4-na')"><input type="radio" name="c4-ps" value="yes"> Yes</label>
+          <label class="radio-item" id="ri-c4-no"  onclick="selectRadio('c4-ps','no','ri-c4-no','ri-c4-yes','ri-c4-na')"><input type="radio" name="c4-ps" value="no"> No</label>
+          <label class="radio-item" id="ri-c4-na"  onclick="selectRadio('c4-ps','not_assessed','ri-c4-na','ri-c4-yes','ri-c4-no')"><input type="radio" name="c4-ps" value="not_assessed"> Not Assessed</label>
+        </div>
+        <div class="field mt-8">
+          <label>Frequency details</label>
+          <input type="text" id="insp-c4-freq" placeholder="e.g. 2x/week Mon & Wed mornings">
+        </div>
+      </div>
+      <div class="field">
+        <label class="check-item" id="insp-ds-check" style="display:flex">
+          <input type="checkbox" id="insp-donation-schedule" onchange="toggleCheck('insp-ds-check')">
+          <span class="check-box">✓</span> Donation schedule exists <span style="font-size:10px;color:var(--ink-lite);margin-left:4px">(informational only)</span>
+        </label>
+      </div>
+      <div class="field">
+        <label>Monthly weight records (C6)?</label>
+        <div class="radio-group">
+          <label class="radio-item" id="ri-c6-yes" onclick="selectRadio('c6-mw','yes','ri-c6-yes','ri-c6-no','ri-c6-na')"><input type="radio" name="c6-mw" value="yes"> Yes</label>
+          <label class="radio-item" id="ri-c6-no"  onclick="selectRadio('c6-mw','no','ri-c6-no','ri-c6-yes','ri-c6-na')"><input type="radio" name="c6-mw" value="no"> No</label>
+          <label class="radio-item" id="ri-c6-na"  onclick="selectRadio('c6-mw','not_assessed','ri-c6-na','ri-c6-yes','ri-c6-no')"><input type="radio" name="c6-mw" value="not_assessed"> Not Assessed</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>Avg lbs donated per month</label>
+        <input type="number" id="insp-lbs" placeholder="0" min="0">
+      </div>
+      <div class="field">
+        <label>Barriers to maximum donation (C9.1)</label>
+        <div class="check-grid one-col" id="insp-barriers"></div>
+      </div>
+      <div class="field">
+        <label>Assistance requested (C9.3)</label>
+        <div class="check-grid one-col" id="insp-assistance"></div>
+      </div>
+    </div>
+
+    <div class="section-head">Section D — Waste Containers</div>
+    <div class="card">
+      <p class="hint" style="margin-bottom:12px">Only 'Yes' answers update the database. Blank/No answers leave existing values unchanged.</p>
+
+      <div style="font-weight:700;font-size:12px;color:var(--ink-mid);margin-bottom:8px;font-family:var(--mono)">D2 — ORGANICS / FOOD WASTE</div>
+      <div class="field">
+        <label>Organics program</label>
+        <select id="insp-d2">
+          <option value="">Not assessed</option>
+          <option value="yes_hauler">Yes — Hauler serviced container</option>
+          <option value="yes_third_party">Yes — Third party program</option>
+          <option value="yes_self">Yes — Self-managed</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="contam-row">
+        <div class="field"><label>Contamination %</label><input type="number" id="insp-d2-contam" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+        <div class="field"><label>Fullness %</label><input type="number" id="insp-d2-full" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+      </div>
+      <div class="field"><label>Contents observed</label><input type="text" id="insp-d2-contents" placeholder="e.g. produce scraps, meat, cardboard"></div>
+
+      <hr class="divider">
+      <div style="font-weight:700;font-size:12px;color:var(--ink-mid);margin-bottom:8px;font-family:var(--mono)">D3 — MSW / LANDFILL</div>
+      <div class="field">
+        <label>MSW program</label>
+        <select id="insp-d3">
+          <option value="">Not assessed</option>
+          <option value="yes_hauler">Yes — Hauler serviced container</option>
+          <option value="yes_third_party">Yes — Third party program</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="contam-row">
+        <div class="field"><label>Contamination %</label><input type="number" id="insp-d3-contam" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+        <div class="field"><label>Fullness %</label><input type="number" id="insp-d3-full" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+      </div>
+      <div class="field"><label>Contents observed</label><input type="text" id="insp-d3-contents" placeholder="e.g. recyclables, organics mixed in"></div>
+
+      <hr class="divider">
+      <div style="font-weight:700;font-size:12px;color:var(--ink-mid);margin-bottom:8px;font-family:var(--mono)">D4 — RECYCLING</div>
+      <div class="field">
+        <label>Recycling program</label>
+        <select id="insp-d4">
+          <option value="">Not assessed</option>
+          <option value="yes_hauler">Yes — Hauler serviced container</option>
+          <option value="yes_third_party">Yes — Third party program</option>
+          <option value="yes_self">Yes — Self-managed</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div class="contam-row">
+        <div class="field"><label>Contamination %</label><input type="number" id="insp-d4-contam" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+        <div class="field"><label>Fullness %</label><input type="number" id="insp-d4-full" min="0" max="100" placeholder="0–100"></div>
+        <div class="pct-label">%</div>
+      </div>
+      <div class="field"><label>Contents observed</label><input type="text" id="insp-d4-contents" placeholder="e.g. clean cardboard, glass, plastic"></div>
+    </div>
+
+    <div class="section-head">Final Notes</div>
+    <div class="card">
+      <div class="field">
+        <label>Recommended Action</label>
+        <select id="insp-action">
+          <option value="">(no change)</option>
+          <option value="eco_follow_up">Eco Follow Up</option>
+          <option value="city_action">City Action</option>
+          <option value="none_compliant">None / Compliant</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Final Notes</label>
+        <textarea id="insp-notes" rows="5" placeholder="Summary of visit, key observations, follow-up items…"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="submitInspection()">Submit Inspection →</button>
+    </div>
+  </div>
+
+  <!-- ── QUEUE ── -->
+  <div id="screen-queue" class="screen hidden">
+    <div class="card" style="margin-bottom:16px">
+      <button class="btn btn-amber" onclick="syncNow()" id="btn-sync">📤 Sync All Pending</button>
+    </div>
+    <div id="queue-list"><p class="text-muted text-center">No pending submissions.</p></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav>
+    <button onclick="goTo('home')" id="nav-home" class="active">
+      <span class="nav-icon">🏠</span>Home
+    </button>
+    <button onclick="goTo('site-visit')" id="nav-site-visit">
+      <span class="nav-icon">🏪</span>Site Visit
+    </button>
+    <button onclick="goTo('inspection')" id="nav-inspection">
+      <span class="nav-icon">📋</span>Inspection
+    </button>
+    <button onclick="goTo('queue')" id="nav-queue">
+      <span class="nav-icon">📤</span>Queue
+      <span class="badge hidden" id="queue-badge">0</span>
+    </button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════ CONFIG ═══
+const DB_NAME = 'efr_field_v1';
+let _db;
+
+function getConfig() {
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  return url && key ? { url, key } : null;
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url || !key) { toast('Enter both URL and key', 'error'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  bootApp();
+}
+
+// ══════════════════════════════════════════ INDEXEDDB ═══
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 2);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('cache'))
+        db.createObjectStore('cache', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('queue'))
+        db.createObjectStore('queue', { keyPath: 'id' });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror  = e => reject(e.target.error);
+  });
+}
+
+async function cacheSet(key, value) {
+  const tx = _db.transaction('cache', 'readwrite');
+  tx.objectStore('cache').put({ key, value, ts: Date.now() });
+  return new Promise(r => tx.oncomplete = r);
+}
+
+async function cacheGet(key, maxAgeMs = 4 * 3600 * 1000) {
+  const tx = _db.transaction('cache', 'readonly');
+  return new Promise((resolve) => {
+    const req = tx.objectStore('cache').get(key);
+    req.onsuccess = () => {
+      const r = req.result;
+      if (!r || (maxAgeMs && Date.now() - r.ts > maxAgeMs)) resolve(null);
+      else resolve(r.value);
+    };
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function queueAdd(record) {
+  const tx = _db.transaction('queue', 'readwrite');
+  tx.objectStore('queue').put(record);
+  return new Promise(r => tx.oncomplete = r);
+}
+
+async function queueGetAll() {
+  const tx = _db.transaction('queue', 'readonly');
+  return new Promise(resolve => {
+    const req = tx.objectStore('queue').getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror   = () => resolve([]);
+  });
+}
+
+async function queueRemove(id) {
+  const tx = _db.transaction('queue', 'readwrite');
+  tx.objectStore('queue').delete(id);
+  return new Promise(r => tx.oncomplete = r);
+}
+
+async function queueUpdate(id, patch) {
+  const tx = _db.transaction('queue', 'readwrite');
+  const store = tx.objectStore('queue');
+  return new Promise(resolve => {
+    const req = store.get(id);
+    req.onsuccess = () => {
+      if (req.result) store.put({ ...req.result, ...patch });
+      tx.oncomplete = resolve;
+    };
+  });
+}
+
+// ══════════════════════════════════════════ SUPABASE ═══
+async function sb(method, table, body = null, qs = '', extraHeaders = {}) {
+  const cfg = getConfig();
+  if (!cfg) throw new Error('Not configured');
+  const url = `${cfg.url}/rest/v1/${table}${qs ? '?' + qs : ''}`;
+  const headers = {
+    'apikey': cfg.key,
+    'Authorization': `Bearer ${cfg.key}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=minimal',
+    ...extraHeaders
+  };
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.message || j.error || msg; } catch {}
+    throw new Error(msg);
+  }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+async function sbSelect(table, qs) { return sb('GET', table, null, qs); }
+async function sbInsert(table, body, upsert = false) {
+  return sb('POST', table, body, '', upsert ? { 'Prefer': 'resolution=merge-duplicates,return=minimal' } : {});
+}
+
+// ══════════════════════════════════════════ LOOKUP DATA ═══
+let GENERATORS = [], STAFF = [], FOOD_TYPES = [];
+
+async function loadLookups(forceRefresh = false) {
+  const maxAge = forceRefresh ? 0 : 4 * 3600 * 1000;
+  const [gens, staff, ft] = await Promise.all([
+    cacheGet('generators', maxAge),
+    cacheGet('staff', maxAge),
+    cacheGet('food_types', maxAge),
+  ]);
+
+  if (gens)  GENERATORS = gens;
+  if (staff) STAFF = staff;
+  if (ft)    FOOD_TYPES = ft;
+
+  // Fetch missing from network if online
+  if (navigator.onLine) {
+    const fetches = [];
+    if (!gens || forceRefresh)  fetches.push(fetchGenerators());
+    if (!staff || forceRefresh) fetches.push(fetchStaff());
+    if (!ft || forceRefresh)    fetches.push(fetchFoodTypes());
+    if (fetches.length) await Promise.allSettled(fetches);
+  }
+
+  populateStaffDropdowns();
+  buildFoodTypeCheckboxes();
+  buildPreventionCheckboxes();
+  buildBarrierCheckboxes();
+  buildAssistanceCheckboxes();
+}
+
+async function fetchGenerators() {
+  const data = await sbSelect('edible_food_generators',
+    'select=generator_id,business_name,address,city,tier&active=eq.true&order=business_name');
+  GENERATORS = data || [];
+  await cacheSet('generators', GENERATORS);
+}
+
+async function fetchStaff() {
+  const data = await sbSelect('staff',
+    'select=staff_id,first_name,last_name,email,initials&active=eq.true&order=last_name');
+  STAFF = data || [];
+  await cacheSet('staff', STAFF);
+}
+
+async function fetchFoodTypes() {
+  const data = await sbSelect('food_types', 'select=food_type_id,type_code,type_name&order=type_name');
+  FOOD_TYPES = data || [];
+  await cacheSet('food_types', FOOD_TYPES);
+}
+
+function populateStaffDropdowns() {
+  const opts = STAFF.map(s =>
+    `<option value="${s.staff_id}">${s.first_name} ${s.last_name}</option>`
+  ).join('');
+  document.getElementById('sv-staff').innerHTML  = '<option value="">Select…</option>' + opts;
+  document.getElementById('insp-staff').innerHTML = '<option value="">Select…</option>' + opts;
+}
+
+const FOOD_TYPE_DISPLAY = {
+  PACKAGED: 'Shelf-stable', PREPARED: 'Refrigerated/Prepared',
+  FROZEN: 'Frozen', PRODUCE: 'Produce', BAKERY: 'Baked goods',
+  MEAT: 'Meats & seafood', DAIRY: 'Dairy & eggs', OTHER: 'Other'
+};
+
+function buildFoodTypeCheckboxes() {
+  const items = FOOD_TYPES.length
+    ? FOOD_TYPES.map(ft => ({ code: ft.type_code, label: FOOD_TYPE_DISPLAY[ft.type_code] || ft.type_name || ft.type_code, id: ft.food_type_id }))
+    : Object.entries(FOOD_TYPE_DISPLAY).map(([code, label]) => ({ code, label, id: null }));
+
+  ['sv-food-types', 'insp-food-types'].forEach(containerId => {
+    document.getElementById(containerId).innerHTML = items.map(ft =>
+      `<label class="check-item" id="${containerId}-${ft.code}" data-code="${ft.code}" data-id="${ft.id || ''}">
+        <input type="checkbox" onchange="toggleCheck('${containerId}-${ft.code}')">
+        <span class="check-box">✓</span> ${ft.label}
+      </label>`
+    ).join('');
+  });
+}
+
+function buildPreventionCheckboxes() {
+  const items = [
+    { code: 'source_reduction', label: 'Source reduction' },
+    { code: 'inventory_control', label: 'Inventory control' },
+    { code: 'employee_takeaway', label: 'Employees take excess food' },
+  ];
+  document.getElementById('insp-prevention').innerHTML = items.map(i =>
+    `<label class="check-item" id="prev-${i.code}" data-code="${i.code}">
+      <input type="checkbox" onchange="toggleCheck('prev-${i.code}')">
+      <span class="check-box">✓</span> ${i.label}
+    </label>`
+  ).join('');
+}
+
+function buildBarrierCheckboxes() {
+  const items = [
+    { code: 'staff_coordination', label: 'Staff coordination issues' },
+    { code: 'no_process', label: 'No defined process' },
+    { code: 'liability', label: 'Liability concerns' },
+    { code: 'training_needed', label: 'Training needed' },
+    { code: 'other', label: 'Other' },
+  ];
+  document.getElementById('insp-barriers').innerHTML = items.map(i =>
+    `<label class="check-item" id="barrier-${i.code}" data-code="${i.code}">
+      <input type="checkbox" onchange="toggleCheck('barrier-${i.code}')">
+      <span class="check-box">✓</span> ${i.label}
+    </label>`
+  ).join('');
+}
+
+function buildAssistanceCheckboxes() {
+  const items = [
+    { code: 'connect_efro', label: 'Help connecting with EFRO' },
+    { code: 'good_samaritan', label: 'Good Samaritan law info' },
+    { code: 'food_types', label: 'Info on food types' },
+    { code: 'logistics', label: 'Logistics/scheduling help' },
+  ];
+  document.getElementById('insp-assistance').innerHTML = items.map(i =>
+    `<label class="check-item" id="assist-${i.code}" data-code="${i.code}">
+      <input type="checkbox" onchange="toggleCheck('assist-${i.code}')">
+      <span class="check-box">✓</span> ${i.label}
+    </label>`
+  ).join('');
+}
+
+// ══════════════════════════════════════════════ UI ═══
+function goTo(screen) {
+  const screens = ['home','site-visit','inspection','queue'];
+  screens.forEach(s => {
+    document.getElementById('screen-' + s).classList.toggle('hidden', s !== screen);
+    document.getElementById('nav-' + s).classList.toggle('active', s === screen);
+  });
+  window.scrollTo(0, 0);
+}
+
+function toggleCheck(labelId) {
+  const el = document.getElementById(labelId);
+  if (!el) return;
+  const cb = el.querySelector('input[type=checkbox]');
+  const checked = cb ? cb.checked : false;
+  el.classList.toggle('checked', checked);
+}
+
+function selectRadio(name, value, ...labelIds) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+    r.checked = r.value === value;
+  });
+  labelIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const isSelected = el.querySelector('input')?.value === value;
+    el.classList.toggle('selected', isSelected);
+    el.classList.toggle('selected-no', isSelected && value === 'no');
+  });
+}
+
+function getRadio(name) {
+  const checked = document.querySelector(`input[name="${name}"]:checked`);
+  return checked ? checked.value : null;
+}
+
+function getChecked(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .check-item.checked`))
+    .map(el => el.dataset.code || el.querySelector('input')?.value)
+    .filter(Boolean);
+}
+
+function getCheckedIds(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} .check-item.checked`))
+    .map(el => ({ code: el.dataset.code, id: el.dataset.id }))
+    .filter(x => x.code);
+}
+
+function v(id) { return (document.getElementById(id)?.value || '').trim() || null; }
+function vn(id) { const val = parseFloat(document.getElementById(id)?.value); return isNaN(val) ? null : val; }
+function vc(id) { return document.getElementById(id)?.classList.contains('checked') || false; }
+
+// Generator search
+function filterGens(prefix) {
+  const inputId  = prefix === 'sv' ? 'sv-gen-search' : 'insp-gen-search';
+  const listId   = prefix === 'sv' ? 'gen-results'   : 'insp-gen-results';
+  const query    = document.getElementById(inputId).value.toLowerCase();
+  const list     = document.getElementById(listId);
+
+  if (!query || query.length < 2) { list.style.display = 'none'; return; }
+
+  const matches = GENERATORS.filter(g =>
+    g.business_name.toLowerCase().includes(query) ||
+    (g.city || '').toLowerCase().includes(query)
+  ).slice(0, 10);
+
+  if (!matches.length) { list.style.display = 'none'; return; }
+
+  list.innerHTML = matches.map(g =>
+    `<div class="gen-item" onclick="selectGen('${prefix}','${g.generator_id}','${g.business_name.replace(/'/g,"\\'")}','${g.city || ''}','${g.tier || ''}')">
+      <div class="gen-name">${g.business_name}</div>
+      <div class="gen-meta">${g.city || ''}${g.tier ? ' · Tier ' + g.tier : ''}</div>
+    </div>`
+  ).join('');
+  list.style.display = 'block';
+}
+
+function selectGen(prefix, id, name, city, tier) {
+  const hiddenId   = prefix === 'sv' ? 'sv-gen-id'       : 'insp-gen-id';
+  const displayId  = prefix === 'sv' ? 'sv-gen-display'  : 'insp-gen-display';
+  const searchId   = prefix === 'sv' ? 'sv-gen-search'   : 'insp-gen-search';
+  const listId     = prefix === 'sv' ? 'gen-results'     : 'insp-gen-results';
+
+  document.getElementById(hiddenId).value = id;
+  document.getElementById(displayId).textContent = `✓ ${name}${city ? ' · ' + city : ''}${tier ? ' · Tier ' + tier : ''}`;
+  document.getElementById(searchId).value = name;
+  document.getElementById(listId).style.display = 'none';
+}
+
+async function refreshLookups() {
+  showLoading('Refreshing data…');
+  try { await loadLookups(true); toast('Generator list refreshed!', 'success'); }
+  catch (e) { toast('Could not refresh: ' + e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+function resetForm(prefix) {
+  if (prefix === 'sv') {
+    ['sv-gen-id','sv-gen-search'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('sv-gen-display').textContent = '';
+    document.getElementById('sv-date').value = today();
+    document.getElementById('sv-staff').value = '';
+    document.getElementById('sv-purpose').value = '';
+    document.getElementById('sv-attendees').value = '';
+    document.getElementById('sv-efro-text').value = '';
+    document.getElementById('sv-notes').value = '';
+    document.getElementById('sv-action').value = '';
+    document.getElementById('sv-followup-date').value = '';
+    // uncheck all
+    document.querySelectorAll('#screen-site-visit .check-item.checked').forEach(el => {
+      el.classList.remove('checked');
+      const cb = el.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = false;
+    });
+  } else {
+    ['insp-gen-id','insp-gen-search'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('insp-gen-display').textContent = '';
+    document.getElementById('insp-date').value = today();
+    document.getElementById('insp-staff').value = '';
+    document.getElementById('insp-person').value = '';
+    document.getElementById('insp-c2-partners').value = '';
+    document.getElementById('insp-c4-freq').value = '';
+    document.getElementById('insp-lbs').value = '';
+    document.getElementById('insp-notes').value = '';
+    document.getElementById('insp-action').value = '';
+    ['insp-d2','insp-d3','insp-d4'].forEach(id => document.getElementById(id).value = '');
+    ['insp-d2-contam','insp-d2-full','insp-d3-contam','insp-d3-full','insp-d4-contam','insp-d4-full'].forEach(id => document.getElementById(id).value = '');
+    ['insp-d2-contents','insp-d3-contents','insp-d4-contents','insp-staff-trained'].forEach(id => document.getElementById(id).value = '');
+    document.querySelectorAll('#screen-inspection .check-item.checked').forEach(el => {
+      el.classList.remove('checked');
+      const cb = el.querySelector('input[type=checkbox]');
+      if (cb) cb.checked = false;
+    });
+    // reset radios
+    selectRadio('submit-type', 'official', 'ri-official', 'ri-edu');
+  }
+}
+
+function today() { return new Date().toISOString().split('T')[0]; }
+function uid()   { return crypto.randomUUID(); }
+
+function showLoading(msg = 'Saving…') {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading-overlay').classList.remove('hidden');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+let _toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ══════════════════════════════════════════ SUBMIT ═══
+
+async function submitSiteVisit() {
+  const genId  = v('sv-gen-id');
+  const staffId = document.getElementById('sv-staff').value;
+  const date   = v('sv-date');
+  if (!genId)  { toast('Select a generator', 'error'); return; }
+  if (!staffId) { toast('Select staff member', 'error'); return; }
+  if (!date)   { toast('Enter a date', 'error'); return; }
+
+  const actionVal = document.getElementById('sv-action').value;
+  const needsFollowup = vc('sv-fu-check') || ['eco_follow_up','city_action'].includes(actionVal);
+  const efroChecked  = vc('sv-doc-ei');
+  const efroText     = v('sv-efro-text');
+
+  const visitRecord = {
+    visit_id:        uid(),
+    generator_id:    genId,
+    staff_id:        staffId,
+    visit_date:      date,
+    purpose:         v('sv-purpose'),
+    attendees:       v('sv-attendees'),
+    follow_up_needed: needsFollowup,
+    follow_up_date:  needsFollowup ? v('sv-followup-date') : null,
+    notes:           v('sv-notes'),
+    visit_type:      'site_visit',
+    created_at:      new Date().toISOString(),
+    updated_at:      new Date().toISOString(),
+  };
+
+  const hasDocs = vc('sv-doc-wa') || vc('sv-doc-mff') || vc('sv-doc-mdr') || efroChecked || actionVal;
+  const complianceRecord = hasDocs ? {
+    generator_id:            genId,
+    written_agreement_exists: vc('sv-doc-wa')      || undefined,
+    minimal_food_form_complete: vc('sv-doc-mff')   || undefined,
+    monthly_donation_records:  vc('sv-doc-mdr')    || undefined,
+    donation_schedule_exists:  vc('sv-doc-ds')     || undefined,
+    efro_info:                 (efroChecked && efroText) ? efroText : undefined,
+    recommended_action:        actionVal || undefined,
+    last_assessment_date:      date,
+    updated_at:                new Date().toISOString(),
+  } : null;
+
+  // Remove undefined keys
+  if (complianceRecord) Object.keys(complianceRecord).forEach(k => complianceRecord[k] === undefined && delete complianceRecord[k]);
+
+  const foodTypeCodes = getCheckedIds('sv-food-types');
+
+  const payload = {
+    id:        uid(),
+    type:      'site_visit',
+    created_at: new Date().toISOString(),
+    status:    'pending',
+    retries:   0,
+    data:      { visitRecord, complianceRecord, foodTypeCodes, genId },
+  };
+
+  showLoading('Saving site visit…');
+  try {
+    if (navigator.onLine) {
+      await pushSiteVisit(payload.data);
+    } else {
+      await queueAdd(payload);
+    }
+    resetForm('sv');
+    updateQueueBadge();
+    toast(navigator.onLine ? '✓ Site visit saved!' : '📤 Saved offline — will sync when connected', 'success');
+    goTo('home');
+    updateStats();
+  } catch (e) {
+    await queueAdd(payload);
+    toast('Saved to queue (error: ' + e.message + ')', '');
+    goTo('home');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function pushSiteVisit({ visitRecord, complianceRecord, foodTypeCodes, genId }) {
+  await sbInsert('outreach_visits', visitRecord);
+
+  if (complianceRecord) {
+    await sbInsert('compliance_status', complianceRecord, true);
+  }
+
+  for (const ft of foodTypeCodes) {
+    if (!ft.id) continue;
+    try {
+      await sbInsert('generator_food_types', {
+        generator_id: genId,
+        food_type_id: ft.id,
+        created_at: new Date().toISOString(),
+      }, true);
+    } catch {}
+  }
+  localStorage.setItem('last_sync', new Date().toISOString());
+}
+
+async function submitInspection() {
+  const genId   = v('insp-gen-id');
+  const staffId = document.getElementById('insp-staff').value;
+  const date    = v('insp-date');
+  if (!genId)   { toast('Select a generator', 'error'); return; }
+  if (!staffId) { toast('Select inspector', 'error');   return; }
+  if (!date)    { toast('Enter a date', 'error');        return; }
+
+  const submitType = getRadio('submit-type') || 'official';
+  const c3wa       = getRadio('c3-wa');
+  const c4ps       = getRadio('c4-ps');
+  const c6mw       = getRadio('c6-mw');
+  const mff        = getRadio('mff');
+  const d2prog     = document.getElementById('insp-d2').value || null;
+  const d3prog     = document.getElementById('insp-d3').value || null;
+  const d4prog     = document.getElementById('insp-d4').value || null;
+  const c2partners = v('insp-c2-partners');
+  const actionVal  = document.getElementById('insp-action').value;
+  const foodTypes  = getCheckedIds('insp-food-types');
+  const prevention = getChecked('insp-prevention');
+  const barriers   = getChecked('insp-barriers');
+  const assistance = getChecked('insp-assistance');
+
+  // Build notes from notes-only fields
+  const notesParts = [
+    v('insp-staff-trained') ? 'Staff trained: ' + v('insp-staff-trained') : null,
+    v('insp-c4-freq')       ? 'Pickup frequency: ' + v('insp-c4-freq')    : null,
+    prevention.length       ? 'Prevention: ' + prevention.join(', ')       : null,
+    barriers.length         ? 'Barriers: ' + barriers.join(', ')           : null,
+    assistance.length       ? 'Assistance requested: ' + assistance.join(', ') : null,
+    v('insp-notes')         ? v('insp-notes')                              : null,
+  ].filter(Boolean);
+  const combinedNotes = notesParts.join('\n') || null;
+
+  const inspectionData = {
+    person_onsite:           v('insp-person'),
+    food_onsite:             getRadio('food-onsite'),
+    food_types:              foodTypes.map(f => f.code),
+    prevention_strategies:   prevention,
+    minimal_food_form:       mff,
+    c2_partners:             c2partners,
+    c3_written_agreement:    c3wa,
+    c4_pickup_schedule:      c4ps,
+    donation_schedule_exists: vc('insp-ds-check'),
+    c6_monthly_weight:       c6mw,
+    c6_lbs_per_month:        vn('insp-lbs'),
+    c91_barriers:            barriers,
+    c93_assistance:          assistance,
+    d2_fw_program:           d2prog,
+    d2_contamination:        vn('insp-d2-contam'),
+    d2_fullness:             vn('insp-d2-full'),
+    d2_contents:             v('insp-d2-contents'),
+    d3_msw_program:          d3prog,
+    d3_contamination:        vn('insp-d3-contam'),
+    d3_fullness:             vn('insp-d3-full'),
+    d3_contents:             v('insp-d3-contents'),
+    d4_rcy_program:          d4prog,
+    d4_contamination:        vn('insp-d4-contam'),
+    d4_fullness:             vn('insp-d4-full'),
+    d4_contents:             v('insp-d4-contents'),
+    notes:                   combinedNotes,
+  };
+
+  // Compliance fields
+  const isCompliant = (mff === 'yes_completed') ||
+    (c3wa === 'yes' && c6mw === 'yes' && c2partners);
+
+  const complianceRecord = {
+    generator_id:              genId,
+    written_agreement_exists:  c3wa === 'yes' ? true : undefined,
+    monthly_donation_records:  c6mw === 'yes' ? true : undefined,
+    minimal_food_form_complete: mff === 'yes_completed' ? true : undefined,
+    donation_schedule_exists:  vc('insp-ds-check') ? true : undefined,
+    efro_info:                 c2partners || undefined,
+    recommended_action:        actionVal || undefined,
+    lbs_per_month:             vn('insp-lbs') || undefined,
+    last_assessment_date:      date,
+    updated_at:                new Date().toISOString(),
+  };
+  Object.keys(complianceRecord).forEach(k => complianceRecord[k] === undefined && delete complianceRecord[k]);
+
+  // Container updates — CASE WHEN equivalent: only send TRUE values
+  const containerUpdate = {};
+  if (d2prog && d2prog !== 'no') containerUpdate.organics_container = true;
+  if (d2prog && d2prog !== 'no') containerUpdate.separating_organics = true;
+  if (d4prog && d4prog !== 'no') containerUpdate.recycling_container = true;
+  if (d4prog && d4prog !== 'no') containerUpdate.separating_recyclables = true;
+
+  const payload = {
+    id:         uid(),
+    type:       submitType === 'official' ? 'inspection' : 'edu_site_visit',
+    created_at: new Date().toISOString(),
+    status:     'pending',
+    retries:    0,
+    data: {
+      submitType, genId, staffId, date,
+      inspectionData, complianceRecord,
+      containerUpdate: Object.keys(containerUpdate).length ? containerUpdate : null,
+      foodTypes, isCompliant,
+    },
+  };
+
+  showLoading('Saving inspection…');
+  try {
+    if (navigator.onLine) {
+      await pushInspection(payload.data);
+    } else {
+      await queueAdd(payload);
+    }
+    resetForm('insp');
+    updateQueueBadge();
+    toast(navigator.onLine ? '✓ Inspection saved!' : '📤 Saved offline — will sync when connected', 'success');
+    goTo('home');
+    updateStats();
+  } catch (e) {
+    await queueAdd(payload);
+    toast('Saved to queue (error: ' + e.message + ')', '');
+    goTo('home');
+  } finally {
+    hideLoading();
+  }
+}
+
+async function pushInspection({ submitType, genId, staffId, date, inspectionData, complianceRecord, containerUpdate, foodTypes, isCompliant }) {
+  if (submitType === 'official') {
+    await sbInsert('inspections', {
+      inspection_id:   uid(),
+      generator_id:    genId,
+      staff_id:        staffId,
+      inspection_date: date,
+      inspection_data: inspectionData,
+      created_at:      new Date().toISOString(),
+      updated_at:      new Date().toISOString(),
+    });
+
+    // Only upgrade compliance, never downgrade
+    if (isCompliant) {
+      await sbInsert('generator_compliance',
+        { generator_id: genId, compliant: true, compliance_date: date, updated_at: new Date().toISOString() },
+        true
+      );
+    }
+  } else {
+    // Educational → outreach_visits
+    await sbInsert('outreach_visits', {
+      visit_id:        uid(),
+      generator_id:    genId,
+      staff_id:        staffId,
+      visit_date:      date,
+      purpose:         'Educational Site Visit',
+      attendees:       inspectionData.person_onsite,
+      follow_up_needed: false,
+      notes:           inspectionData.notes,
+      visit_type:      'educational',
+      inspection_data: inspectionData,
+      created_at:      new Date().toISOString(),
+      updated_at:      new Date().toISOString(),
+    });
+  }
+
+  // Compliance status upsert (both paths)
+  await sbInsert('compliance_status', complianceRecord, true);
+
+  // Container update (additive — only send TRUE)
+  if (containerUpdate) {
+    await sb('PATCH', `edible_food_generators?generator_id=eq.${genId}`,
+      { ...containerUpdate, updated_at: new Date().toISOString() });
+  }
+
+  // Food types (additive)
+  for (const ft of foodTypes) {
+    if (!ft.id) continue;
+    try {
+      await sbInsert('generator_food_types', {
+        generator_id: genId,
+        food_type_id: ft.id,
+        created_at:   new Date().toISOString(),
+      }, true);
+    } catch {}
+  }
+
+  localStorage.setItem('last_sync', new Date().toISOString());
+}
+
+// ══════════════════════════════════════════════ SYNC ═══
+let _syncing = false;
+
+async function syncNow() {
+  if (_syncing || !navigator.onLine) {
+    toast(navigator.onLine ? 'Already syncing…' : 'No connection', 'error');
+    return;
+  }
+  _syncing = true;
+  showLoading('Syncing…');
+  const queue = await queueGetAll();
+  let success = 0, fail = 0;
+
+  for (const item of queue) {
+    await queueUpdate(item.id, { status: 'syncing' });
+    try {
+      if (item.type === 'site_visit')    await pushSiteVisit(item.data);
+      if (item.type === 'inspection')    await pushInspection(item.data);
+      if (item.type === 'edu_site_visit') await pushInspection(item.data);
+      await queueRemove(item.id);
+      success++;
+    } catch (e) {
+      await queueUpdate(item.id, { status: 'error', retries: (item.retries || 0) + 1, lastError: e.message });
+      fail++;
+    }
+  }
+
+  _syncing = false;
+  hideLoading();
+  updateQueueBadge();
+  renderQueue();
+  updateStats();
+
+  if (fail === 0 && success > 0) toast(`✓ Synced ${success} record${success > 1 ? 's' : ''}!`, 'success');
+  else if (fail > 0)             toast(`${success} synced, ${fail} failed — check queue`, 'error');
+  else                           toast('Nothing to sync', '');
+}
+
+async function renderQueue() {
+  const queue = await queueGetAll();
+  const list  = document.getElementById('queue-list');
+  if (!queue.length) {
+    list.innerHTML = '<p class="text-muted text-center" style="padding:20px">No pending submissions 🎉</p>';
+    return;
+  }
+  list.innerHTML = queue.map(item => {
+    const genName = item.data?.visitRecord?.notes || item.data?.genId?.substring(0, 8) || '—';
+    const typeMap = { site_visit: '🏪 Site Visit', inspection: '📋 Inspection', edu_site_visit: '🏫 Edu Visit' };
+    const typeLabel = typeMap[item.type] || item.type;
+    const date = (item.data?.visitRecord?.visit_date || item.data?.date || item.created_at || '').substring(0, 10);
+    const statusClass = { pending: 'status-pending', error: 'status-error', syncing: 'status-syncing' }[item.status] || 'status-pending';
+    const statusLabel = { pending: 'Pending', error: 'Failed', syncing: 'Syncing…' }[item.status] || 'Pending';
+    return `<div class="queue-item">
+      <div class="qi-icon">${item.type === 'site_visit' ? '🏪' : '📋'}</div>
+      <div class="qi-body">
+        <div class="qi-type">${typeLabel}</div>
+        <div class="qi-date">${date}</div>
+        ${item.lastError ? `<div class="qi-date" style="color:var(--red)">${item.lastError}</div>` : ''}
+      </div>
+      <span class="qi-status ${statusClass}">${statusLabel}</span>
+    </div>`;
+  }).join('');
+}
+
+async function updateQueueBadge() {
+  const queue = await queueGetAll();
+  const n = queue.length;
+  const badge = document.getElementById('queue-badge');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n === 0);
+  document.getElementById('pending-count').textContent = n;
+  document.getElementById('stat-pending').textContent = n;
+  const banner = document.getElementById('sync-banner');
+  banner.classList.toggle('hidden', n === 0);
+}
+
+async function updateStats() {
+  const todayStr = today();
+  const visited  = await cacheGet('today_count_' + todayStr, Infinity) || 0;
+  document.getElementById('stat-today').textContent = visited;
+  const lsync = localStorage.getItem('last_sync');
+  document.getElementById('last-sync-text').textContent = lsync
+    ? new Date(lsync).toLocaleString()
+    : 'Never';
+}
+
+// ══════════════════════════════════════════ CONNECTIVITY ═══
+function updateConnStatus() {
+  const badge = document.getElementById('status-badge');
+  const text  = document.getElementById('status-text');
+  const queue = document.getElementById('queue-badge');
+  if (navigator.onLine) {
+    badge.className = 'online';  text.textContent = 'Online';
+    if (document.getElementById('app') && !document.getElementById('app').classList.contains('hidden')) {
+      queueGetAll().then(q => { if (q.length) syncNow(); });
+    }
+  } else {
+    badge.className = 'offline'; text.textContent = 'Offline';
+  }
+}
+
+window.addEventListener('online',  updateConnStatus);
+window.addEventListener('offline', updateConnStatus);
+
+// ══════════════════════════════════════════════ BOOT ═══
+async function bootApp() {
+  _db = await openDB();
+  const cfg = getConfig();
+
+  if (!cfg) {
+    document.getElementById('screen-setup').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('screen-setup').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+
+  // Set today's date defaults
+  document.getElementById('sv-date').value = today();
+  document.getElementById('insp-date').value = today();
+
+  updateConnStatus();
+  await loadLookups();
+  await updateQueueBadge();
+  await updateStats();
+
+  // Close generator search on outside tap
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#sv-gen-search') && !e.target.closest('#gen-results')) {
+      document.getElementById('gen-results').style.display = 'none';
+    }
+    if (!e.target.closest('#insp-gen-search') && !e.target.closest('#insp-gen-results')) {
+      document.getElementById('insp-gen-results').style.display = 'none';
+    }
+  });
+
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+}
+
+document.addEventListener('DOMContentLoaded', bootApp);
+
+// When user lands on queue tab, render it
+const _origGoTo = goTo;
+window.goTo = function(screen) {
+  _origGoTo(screen);
+  if (screen === 'queue') renderQueue();
+};
+</script>
+</body>
+</html>
