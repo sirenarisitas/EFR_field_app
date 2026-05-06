@@ -1391,20 +1391,25 @@ async function submitSiteVisit() {
   };
 
   showLoading('Saving site visit…');
+  let svSubmitted = false;
   try {
     if (navigator.onLine) {
       await pushSiteVisit(payload.data);
+      svSubmitted = true;
     } else {
       await queueAdd(payload);
     }
     resetForm('sv');
     updateQueueBadge();
-    toast(navigator.onLine ? '✓ Site visit saved!' : '📤 Saved offline — will sync when connected', 'success');
+    toast(svSubmitted ? '✓ Site visit saved!' : '📤 Saved offline — will sync when connected', 'success');
     goTo('home');
     updateStats();
   } catch (e) {
-    await queueAdd(payload);
-    toast('Saved to queue (error: ' + e.message + ')', '');
+    // Only queue if the primary insert didn't already succeed
+    if (!svSubmitted) await queueAdd(payload);
+    const isNetErr = /load failed|failed to fetch|network/i.test(e.message || '');
+    toast(isNetErr ? '📤 Saved offline — will sync when connected' : 'Saved to queue (' + e.message + ')', isNetErr ? 'success' : '');
+    resetForm('sv');
     goTo('home');
   } finally {
     hideLoading();
@@ -1412,7 +1417,7 @@ async function submitSiteVisit() {
 }
 
 async function pushSiteVisit({ visitRecord, complianceRecord, foodTypeCodes, genId }) {
-  await sbInsert('outreach_visits', visitRecord);
+  await sbInsert('outreach_visits', visitRecord, false, true);
 
   if (complianceRecord) {
     await sbInsert('compliance_status', complianceRecord, true);
@@ -1534,20 +1539,24 @@ async function submitInspection() {
   };
 
   showLoading('Saving inspection…');
+  let inspSubmitted = false;
   try {
     if (navigator.onLine) {
       await pushInspection(payload.data);
+      inspSubmitted = true;
     } else {
       await queueAdd(payload);
     }
     resetForm('insp');
     updateQueueBadge();
-    toast(navigator.onLine ? '✓ Inspection saved!' : '📤 Saved offline — will sync when connected', 'success');
+    toast(inspSubmitted ? '✓ Inspection saved!' : '📤 Saved offline — will sync when connected', 'success');
     goTo('home');
     updateStats();
   } catch (e) {
-    await queueAdd(payload);
-    toast('Saved to queue (error: ' + e.message + ')', '');
+    if (!inspSubmitted) await queueAdd(payload);
+    const isNetErr2 = /load failed|failed to fetch|network/i.test(e.message || '');
+    toast(isNetErr2 ? '📤 Saved offline — will sync when connected' : 'Saved to queue (' + e.message + ')', isNetErr2 ? 'success' : '');
+    resetForm('insp');
     goTo('home');
   } finally {
     hideLoading();
@@ -1564,7 +1573,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
       inspection_data: inspectionData,
       created_at:      new Date().toISOString(),
       updated_at:      new Date().toISOString(),
-    });
+    }, false, true);
 
     // Only upgrade compliance, never downgrade
     if (isCompliant) {
@@ -1588,7 +1597,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
       inspection_data: inspectionData,
       created_at:      new Date().toISOString(),
       updated_at:      new Date().toISOString(),
-    });
+    }, false, true);
   }
 
   // Compliance status upsert (both paths)
