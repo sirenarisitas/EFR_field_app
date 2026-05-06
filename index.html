@@ -1439,7 +1439,7 @@ async function submitSiteVisit() {
 }
 
 async function pushSiteVisit({ visitRecord, complianceRecord, foodTypeCodes, genId }) {
-  await sbInsert('outreach_visits', visitRecord, false, true, 'visit_id');
+  await sbInsert('outreach_visits', visitRecord, false, true);
 
   if (complianceRecord) {
     await sbInsert('compliance_status', complianceRecord, true, false, 'generator_id');
@@ -1608,7 +1608,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
       inspection_data: inspectionData,
       created_at:      new Date().toISOString(),
       updated_at:      new Date().toISOString(),
-    }, false, true, 'inspection_id');
+    }, false, true);
 
     // Only upgrade compliance, never downgrade
     if (isCompliant) {
@@ -1632,7 +1632,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
       inspection_data: inspectionData,
       created_at:      new Date().toISOString(),
       updated_at:      new Date().toISOString(),
-    }, false, true, 'visit_id');
+    }, false, true);
   }
 
   // Compliance status upsert (both paths)

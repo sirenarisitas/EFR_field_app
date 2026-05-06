@@ -1,4 +1,4 @@
-const CACHE = 'efr-field-v4';
+const CACHE = 'efr-field-v5';
 const SHELL = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
