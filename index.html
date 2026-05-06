@@ -1860,8 +1860,10 @@ async function bootApp() {
     return;
   }
 
-  document.getElementById('screen-setup').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
+  const setupEl = document.getElementById('screen-setup');
+  const appEl   = document.getElementById('app');
+  if (setupEl) { setupEl.style.display = 'none'; setupEl.classList.add('hidden'); }
+  if (appEl)   { appEl.style.display   = 'flex'; appEl.classList.remove('hidden'); }
 
   // Set today's date defaults
   document.getElementById('sv-date').value = today();
