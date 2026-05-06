@@ -1064,8 +1064,12 @@ async function sb(method, table, body = null, qs = '', extraHeaders = {}) {
 }
 
 async function sbSelect(table, qs) { return sb('GET', table, null, qs); }
-async function sbInsert(table, body, upsert = false) {
-  return sb('POST', table, body, '', upsert ? { 'Prefer': 'resolution=merge-duplicates,return=minimal' } : {});
+async function sbInsert(table, body, upsert = false, ignoreDups = false, onConflict = null) {
+  let prefer = 'return=minimal';
+  if (upsert)     prefer = 'resolution=merge-duplicates,return=minimal';
+  if (ignoreDups) prefer = 'resolution=ignore-duplicates,return=minimal';
+  const qs = onConflict ? 'on_conflict=' + onConflict : '';
+  return sb('POST', table, body, qs, { 'Prefer': prefer });
 }
 
 // ══════════════════════════════════════════ LOOKUP DATA ═══
@@ -1438,7 +1442,7 @@ async function pushSiteVisit({ visitRecord, complianceRecord, foodTypeCodes, gen
   await sbInsert('outreach_visits', visitRecord, false, true);
 
   if (complianceRecord) {
-    await sbInsert('compliance_status', complianceRecord, true);
+    await sbInsert('compliance_status', complianceRecord, true, false, 'generator_id');
   }
 
   for (const ft of foodTypeCodes) {
@@ -1610,7 +1614,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
     if (isCompliant) {
       await sbInsert('generator_compliance',
         { generator_id: genId, compliant: true, compliance_date: date, updated_at: new Date().toISOString() },
-        true
+        true, false, 'generator_id'
       );
     }
   } else {
@@ -1632,7 +1636,7 @@ async function pushInspection({ submitType, genId, staffId, date, inspectionData
   }
 
   // Compliance status upsert (both paths)
-  await sbInsert('compliance_status', complianceRecord, true);
+  await sbInsert('compliance_status', complianceRecord, true, false, 'generator_id');
 
   // Container update (additive — only send TRUE)
   if (containerUpdate) {
